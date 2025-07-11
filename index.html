@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jonom Digital - PDF E-Signature Tool</title>
-    <!-- We need pdf.js for rendering and pdf-lib for editing -->
+    <!-- Libraries for rendering and editing PDFs -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.102/pdf.min.js"></script>
     
@@ -32,57 +32,49 @@
         h1 { margin-bottom: 5px; }
         .subtitle { text-align: center; color: #6c757d; margin-top: 0; margin-bottom: 30px; }
         
-        /* Step-by-step instructions */
         .steps { list-style-type: none; padding: 0; margin-bottom: 30px; }
         .steps li { background-color: #eef7ff; margin-bottom: 10px; padding: 15px; border-left: 4px solid #007bff; border-radius: 4px; }
         .steps li strong { color: #0056b3; }
 
-        /* File Upload */
         .upload-area { text-align: center; padding: 20px; border: 2px dashed #dee2e6; border-radius: 8px; margin-bottom: 20px; }
         .button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
+            padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer;
+            font-size: 1rem; font-weight: 600; transition: all 0.2s ease;
         }
         .upload-btn { background-color: #007bff; color: white; }
         .upload-btn:hover { background-color: #0069d9; }
+        .upload-btn:disabled { background-color: #adb5bd; cursor: not-allowed; }
         input[type="file"] { display: none; }
 
-        /* PDF Viewer */
         #pdf-viewer-container { display: none; }
         #pdf-canvas { border: 1px solid #ced4da; width: 100%; height: auto; cursor: crosshair; }
         .pdf-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
-        .page-info { font-weight: 500; }
         .nav-btn { background-color: #6c757d; color: white; }
         .nav-btn:hover { background-color: #5a6268; }
         .nav-btn:disabled { background-color: #adb5bd; cursor: not-allowed; }
 
-        /* Signature Modal */
         .modal {
             display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
             overflow: auto; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center;
         }
         .modal-content {
-            background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888;
-            width: 90%; max-width: 500px; border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+            background-color: #fefefe; margin: auto; padding: 20px; border-radius: 8px; 
+            width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.25);
         }
         #signature-pad { border: 2px dashed #007bff; background-color: #fff; cursor: crosshair; }
         .modal-controls { margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; }
         .save-btn { background-color: #28a745; color: white; }
-        .save-btn:hover { background-color: #218838; }
         .clear-btn { background-color: #ffc107; color: #333; }
-        .clear-btn:hover { background-color: #e0a800; }
 
-        /* Final Download Area */
         #download-area { display: none; text-align: center; margin-top: 20px; }
         #download-btn { background-color: #28a745; color: white; font-size: 1.2rem; padding: 15px 25px; }
-        #download-btn:hover { background-color: #218838; }
 
-        #status-message { text-align: center; margin-top: 15px; font-weight: bold; color: #17a2b8; height: 20px; transition: color 0.3s; }
+        #status-message { 
+            text-align: center; margin-top: 15px; font-weight: bold; height: 20px; transition: color 0.3s; 
+        }
+        #status-message.success { color: #28a745; }
+        #status-message.error { color: #dc3545; }
+        #status-message.info { color: #17a2b8; }
     </style>
 </head>
 <body>
@@ -97,10 +89,10 @@
         <li><strong>Step 4:</strong> Click "Apply & Download" to get your signed PDF.</li>
     </ul>
     <div class="upload-area">
-        <label for="pdf-upload" class="button upload-btn">Upload Agreement PDF</label>
+        <label for="pdf-upload" id="upload-label" class="button upload-btn">Upload Agreement PDF</label>
         <input type="file" id="pdf-upload" accept="application/pdf">
     </div>
-    <div id="status-message"></div>
+    <div id="status-message" class="info"></div>
     <div id="pdf-viewer-container">
         <canvas id="pdf-canvas"></canvas>
         <div class="pdf-controls">
@@ -127,13 +119,15 @@
 
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.102/pdf.worker.min.js`;
-
     const { PDFDocument } = PDFLib;
     
+    // --- Global State ---
     let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null;
     let originalPdfBytes = null, signatureCoords = null, signatureImage = null;
 
+    // --- DOM Elements ---
     const uploadInput = document.getElementById('pdf-upload');
+    const uploadLabel = document.getElementById('upload-label');
     const viewerContainer = document.getElementById('pdf-viewer-container');
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas.getContext('2d');
@@ -147,14 +141,28 @@
     const sigCtx = sigPad.getContext('2d');
     const downloadArea = document.getElementById('download-area');
 
+    // --- Utility Functions ---
+    const setStatus = (message, type = 'info') => {
+        statusMsg.textContent = message;
+        statusMsg.className = type;
+    };
+    
+    const resetState = () => {
+        pdfDoc = null; pageNum = 1; originalPdfBytes = null;
+        signatureCoords = null; signatureImage = null;
+        viewerContainer.style.display = 'none';
+        downloadArea.style.display = 'none';
+        setStatus('');
+    };
+
+    // --- PDF Rendering Logic ---
     const renderPage = async (num) => {
         pageRendering = true;
         const page = await pdfDoc.getPage(num);
         const viewport = page.getViewport({ scale: 1.5 });
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        const renderContext = { canvasContext: ctx, viewport };
-        await page.render(renderContext).promise;
+        await page.render({ canvasContext: ctx, viewport }).promise;
         pageRendering = false;
         pageNumDisplay.textContent = num;
         prevBtn.disabled = num <= 1;
@@ -168,65 +176,65 @@
     const queueRenderPage = (num) => pageRendering ? (pageNumPending = num) : renderPage(num);
     const onPrevPage = () => { if (pageNum > 1) { pageNum--; queueRenderPage(pageNum); } };
     const onNextPage = () => { if (pageNum < pdfDoc.numPages) { pageNum++; queueRenderPage(pageNum); } };
+    prevBtn.addEventListener('click', onPrevPage);
+    nextBtn.addEventListener('click', onNextPage);
     
-    /**
-     * **FIXED** Reads a file and returns its content as a Uint8Array.
-     * This is more robust than the previous implementation.
-     */
-    const readFileAsUint8Array = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(new Uint8Array(reader.result));
-            reader.onerror = () => reject(reader.error);
-            reader.readAsArrayBuffer(file);
-        });
-    };
-
-    const resetState = () => {
-        pdfDoc = null; pageNum = 1; originalPdfBytes = null;
-        signatureCoords = null; signatureImage = null;
-        viewerContainer.style.display = 'none';
-        downloadArea.style.display = 'none';
-        statusMsg.textContent = '';
-    };
-
-    uploadInput.addEventListener('change', async (e) => {
+    // --- **FIXED** File Upload Handling ---
+    uploadInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         resetState();
+
         if (!file || file.type !== 'application/pdf') {
-            statusMsg.textContent = "Please upload a valid PDF file.";
+            setStatus("Please upload a valid PDF file.", 'error');
             return;
         }
+        
+        const fileReader = new FileReader();
+        
+        fileReader.onload = async function(event) {
+            try {
+                setStatus("Loading PDF document...", 'info');
+                originalPdfBytes = new Uint8Array(event.target.result);
+                pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
+                
+                pageNum = 1;
+                pageCountDisplay.textContent = pdfDoc.numPages;
+                viewerContainer.style.display = 'block';
+                await renderPage(pageNum);
+                setStatus("PDF Loaded. Click on the document to place your signature.", 'success');
+            } catch (err) {
+                console.error("Error loading PDF:", err);
+                setStatus("Error: Could not read this PDF. It might be corrupt or protected.", 'error');
+                resetState();
+            } finally {
+                uploadLabel.classList.remove('disabled');
+                uploadInput.disabled = false;
+            }
+        };
 
-        try {
-            statusMsg.textContent = "Reading file...";
-            originalPdfBytes = await readFileAsUint8Array(file);
-            
-            statusMsg.textContent = "Loading PDF document...";
-            pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
-            
-            pageNum = 1;
-            pageCountDisplay.textContent = pdfDoc.numPages;
-            viewerContainer.style.display = 'block';
-            await renderPage(pageNum);
-            statusMsg.textContent = "PDF Loaded. Click on the document to place your signature.";
-        } catch (err) {
-            console.error("Error during PDF processing:", err);
-            statusMsg.textContent = "Error: Could not load or process the PDF file.";
-            resetState();
-        }
+        fileReader.onerror = () => {
+            setStatus("Error reading the file from your computer.", 'error');
+            uploadLabel.classList.remove('disabled');
+            uploadInput.disabled = false;
+        };
+
+        setStatus("Reading file...", 'info');
+        uploadLabel.classList.add('disabled');
+        uploadInput.disabled = true;
+        fileReader.readAsArrayBuffer(file);
     });
     
+    // --- Signature Placement and Modal ---
     canvas.addEventListener('click', (e) => {
         if (!pdfDoc) return;
         const rect = canvas.getBoundingClientRect();
         signatureCoords = { page: pageNum, x: e.clientX - rect.left, y: e.clientY - rect.top };
-        sigCtx.clearRect(0, 0, sigPad.width, sigPad.height); // Clear old signature
+        sigCtx.clearRect(0, 0, sigPad.width, sigPad.height);
         modal.style.display = 'flex';
-        statusMsg.textContent = "Draw your signature in the box.";
+        setStatus("Draw your signature in the box.", 'info');
     });
-    
-    // Signature Pad Logic
+
+    // --- Signature Pad Drawing Logic ---
     let drawing = false;
     sigCtx.lineWidth = 2;
     sigCtx.lineCap = 'round';
@@ -237,25 +245,24 @@
     };
     const startDraw = (e) => { drawing = true; sigCtx.beginPath(); sigCtx.moveTo(getPos(e).x, getPos(e).y); };
     const endDraw = () => { drawing = false; };
-    const draw = (e) => {
-        if (!drawing) return; e.preventDefault();
-        const pos = getPos(e); sigCtx.lineTo(pos.x, pos.y); sigCtx.stroke();
-    };
+    const draw = (e) => { if (!drawing) return; e.preventDefault(); const pos = getPos(e); sigCtx.lineTo(pos.x, pos.y); sigCtx.stroke(); };
     sigPad.addEventListener('mousedown', startDraw); sigPad.addEventListener('mouseup', endDraw); sigPad.addEventListener('mousemove', draw);
     sigPad.addEventListener('touchstart', startDraw); sigPad.addEventListener('touchend', endDraw); sigPad.addEventListener('touchmove', draw);
+    
     document.getElementById('clear-signature').addEventListener('click', () => sigCtx.clearRect(0, 0, sigPad.width, sigPad.height));
     document.getElementById('save-signature').addEventListener('click', () => {
         signatureImage = sigPad.toDataURL('image/png');
         modal.style.display = 'none';
         downloadArea.style.display = 'block';
-        statusMsg.textContent = "Signature saved. Click 'Apply & Download' to finish.";
+        setStatus("Signature saved. Click 'Apply & Download' to finish.", 'success');
     });
 
+    // --- Final Step: Apply Signature and Download ---
     document.getElementById('download-btn').addEventListener('click', async () => {
         if (!originalPdfBytes || !signatureCoords || !signatureImage) {
-            statusMsg.textContent = "Error: Missing data. Please sign first."; return;
+            setStatus("Error: Missing data. Please sign first.", 'error'); return;
         }
-        statusMsg.textContent = "Applying signature, please wait...";
+        setStatus("Applying signature, please wait...", 'info');
         try {
             const pdfToModify = await PDFDocument.load(originalPdfBytes);
             const pages = pdfToModify.getPages();
@@ -276,16 +283,13 @@
             link.download = 'signed-agreement.pdf';
             link.click();
             URL.revokeObjectURL(link.href);
-            statusMsg.textContent = "Done! Your signed PDF has been downloaded.";
+            setStatus("Done! Your signed PDF has been downloaded.", 'success');
         } catch (err) {
             console.error("Error applying signature:", err);
-            statusMsg.textContent = "An error occurred while creating the PDF.";
+            setStatus("An error occurred while creating the final PDF.", 'error');
         }
     });
-    
-    prevBtn.addEventListener('click', onPrevPage);
-    nextBtn.addEventListener('click', onNextPage);
 </script>
 
 </body>
-  </html>
+</html>

@@ -3,91 +3,77 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Jonom Digital | E-Sign Agreement</title>
+  <title>Jonom Digital | Smart E-Sign Tool</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
     .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    canvas { border: 1px solid #ccc; touch-action: none; }
+    canvas { border: 1px solid #ccc; touch-action: none; margin-bottom: 10px; }
     button, input[type="file"] {
-      margin-top: 10px;
-      padding: 10px;
+      margin-top: 10px; padding: 10px;
       background: #007bff; color: white;
-      border: none; border-radius: 5px; cursor: pointer;
+      border: none; border-radius: 5px;
+      cursor: pointer;
     }
     button:hover { background: #0056b3; }
-    .note { font-size: 0.9em; color: gray; margin-top: 5px; }
     h2, h3 { color: #222; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Jonom Digital - E-Sign Agreement</h2>
+    <h2>Jonom Digital - Smart E-Sign Tool</h2>
     
-    <label><strong>Upload Agreement PDF:</strong></label><br/>
+    <label>Upload Agreement PDF:</label><br/>
     <input type="file" id="pdf-upload" accept="application/pdf" />
-    <div class="note">PDF will be signed automatically at the bottom-right of the last page.</div>
+    <p><small>Signature will be auto-placed below the "FOR THE RIGHT HOLDER" label.</small></p>
 
-    <h3>Draw Your Signature</h3>
+    <h3>Draw Signature</h3>
     <canvas id="signature-pad" width="300" height="100"></canvas><br/>
-    <button onclick="clearSignature()">Clear Signature</button>
+    <button onclick="clearSignature()">Clear Signature</button><br/>
 
-    <h3>Sign Agreement</h3>
     <button onclick="signPdf()">Sign & Download</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+
   <script>
     const signaturePad = document.getElementById('signature-pad');
     const ctx = signaturePad.getContext('2d');
     let drawing = false;
 
-    function startDraw(e) {
-      drawing = true;
-      draw(e);
-    }
-
-    function endDraw() {
-      drawing = false;
-      ctx.beginPath();
-    }
+    signaturePad.addEventListener('mousedown', e => { drawing = true; draw(e); });
+    signaturePad.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); });
+    signaturePad.addEventListener('mousemove', draw);
+    signaturePad.addEventListener('touchstart', e => { drawing = true; drawTouch(e); });
+    signaturePad.addEventListener('touchend', () => { drawing = false; ctx.beginPath(); });
+    signaturePad.addEventListener('touchmove', drawTouch);
 
     function draw(e) {
       if (!drawing) return;
       const rect = signaturePad.getBoundingClientRect();
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      ctx.lineTo(x, y);
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(x, y);
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
     }
 
     function drawTouch(e) {
       if (!drawing) return;
       const rect = signaturePad.getBoundingClientRect();
       const touch = e.touches[0];
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
-      ctx.lineTo(x, y);
+      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(x, y);
+      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
     }
 
     function clearSignature() {
       ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
     }
-
-    signaturePad.addEventListener('mousedown', startDraw);
-    signaturePad.addEventListener('mouseup', endDraw);
-    signaturePad.addEventListener('mousemove', draw);
-    signaturePad.addEventListener('touchstart', startDraw);
-    signaturePad.addEventListener('touchend', endDraw);
-    signaturePad.addEventListener('touchmove', drawTouch);
 
     async function signPdf() {
       const fileInput = document.getElementById('pdf-upload');
@@ -96,28 +82,60 @@
         return;
       }
 
-      const pdfBytes = await fileInput.files[0].arrayBuffer();
-      const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-      const pages = pdfDoc.getPages();
-      const lastPage = pages[pages.length - 1];
+      const file = fileInput.files[0];
+      const arrayBuffer = await file.arrayBuffer();
 
-      const signatureImage = signaturePad.toDataURL('image/png').split(',')[1];
-      const pngImage = await pdfDoc.embedPng(signatureImage);
-      
-      const { width, height } = lastPage.getSize();
+      // Load with PDF-lib
+      const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+      const pdfBytes = new Uint8Array(arrayBuffer);
 
-      // Auto position: bottom-right corner
-      lastPage.drawImage(pngImage, {
-        x: width - 160,
-        y: 40,
-        width: 120,
-        height: 40,
+      // Load with PDF.js to extract text
+      const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+      const pdf = await loadingTask.promise;
+
+      let targetPageIndex = -1;
+      let yPosition = null;
+
+      // Loop to find "FOR THE RIGHT HOLDER"
+      for (let i = 0; i < pdf.numPages; i++) {
+        const page = await pdf.getPage(i + 1);
+        const content = await page.getTextContent();
+        const lines = content.items.map(item => item.str).join(" ");
+
+        if (lines.includes("FOR THE RIGHT HOLDER")) {
+          const matchedItem = content.items.find(item => item.str.includes("FOR THE RIGHT HOLDER"));
+          yPosition = matchedItem.transform[5]; // y value
+          targetPageIndex = i;
+          break;
+        }
+      }
+
+      if (targetPageIndex === -1 || yPosition === null) {
+        alert('"FOR THE RIGHT HOLDER" not found in PDF.');
+        return;
+      }
+
+      const targetPage = pdfDoc.getPages()[targetPageIndex];
+      const { width } = targetPage.getSize();
+
+      // Embed signature
+      const signatureDataUrl = signaturePad.toDataURL('image/png');
+      const pngImage = await pdfDoc.embedPng(signatureDataUrl.split(',')[1]);
+
+      // Draw signature 40 units below the detected text
+      targetPage.drawImage(pngImage, {
+        x: width - 200,
+        y: yPosition - 50,
+        width: 150,
+        height: 50
       });
 
       const signedPdfBytes = await pdfDoc.save();
       const blob = new Blob([signedPdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      link.href = url;
       link.download = 'Signed_Agreement.pdf';
       link.click();
     }

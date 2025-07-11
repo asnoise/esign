@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Jonom Digital | E-Sign Agreement</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-    h2 { color: #222; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     canvas { border: 1px solid #ccc; touch-action: none; }
     button, input[type="file"] {
       margin-top: 10px;
@@ -16,77 +15,79 @@
       border: none; border-radius: 5px; cursor: pointer;
     }
     button:hover { background: #0056b3; }
-    #pdf-preview { width: 100%; margin-top: 10px; border: 1px solid #ccc; }
     .note { font-size: 0.9em; color: gray; margin-top: 5px; }
+    h2, h3 { color: #222; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Jonom Digital - E-Sign Agreement</h2>
+    
+    <label><strong>Upload Agreement PDF:</strong></label><br/>
     <input type="file" id="pdf-upload" accept="application/pdf" />
-    <br/>
-    <div class="note">Upload your agreement PDF</div>
+    <div class="note">PDF will be signed automatically at the bottom-right of the last page.</div>
 
     <h3>Draw Your Signature</h3>
     <canvas id="signature-pad" width="300" height="100"></canvas><br/>
     <button onclick="clearSignature()">Clear Signature</button>
 
-    <h3>Sign and Download</h3>
-    <button onclick="signPdf()">Sign & Download PDF</button>
-
-    <canvas id="pdf-preview" style="display:none;"></canvas>
+    <h3>Sign Agreement</h3>
+    <button onclick="signPdf()">Sign & Download</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-
   <script>
     const signaturePad = document.getElementById('signature-pad');
     const ctx = signaturePad.getContext('2d');
     let drawing = false;
 
-    signaturePad.addEventListener('mousedown', start);
-    signaturePad.addEventListener('mouseup', end);
-    signaturePad.addEventListener('mousemove', draw);
-    signaturePad.addEventListener('touchstart', start);
-    signaturePad.addEventListener('touchend', end);
-    signaturePad.addEventListener('touchmove', drawTouch);
-
-    function start(e) {
+    function startDraw(e) {
       drawing = true;
       draw(e);
     }
 
-    function end() {
+    function endDraw() {
       drawing = false;
       ctx.beginPath();
     }
 
     function draw(e) {
       if (!drawing) return;
+      const rect = signaturePad.getBoundingClientRect();
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
-      const rect = signaturePad.getBoundingClientRect();
-      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      ctx.lineTo(x, y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.moveTo(x, y);
     }
 
     function drawTouch(e) {
       if (!drawing) return;
-      const touch = e.touches[0];
       const rect = signaturePad.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
-      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      ctx.lineTo(x, y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      ctx.moveTo(x, y);
     }
 
     function clearSignature() {
       ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
     }
+
+    signaturePad.addEventListener('mousedown', startDraw);
+    signaturePad.addEventListener('mouseup', endDraw);
+    signaturePad.addEventListener('mousemove', draw);
+    signaturePad.addEventListener('touchstart', startDraw);
+    signaturePad.addEventListener('touchend', endDraw);
+    signaturePad.addEventListener('touchmove', drawTouch);
 
     async function signPdf() {
       const fileInput = document.getElementById('pdf-upload');
@@ -97,23 +98,24 @@
 
       const pdfBytes = await fileInput.files[0].arrayBuffer();
       const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-
       const pages = pdfDoc.getPages();
-      const firstPage = pages[0];
+      const lastPage = pages[pages.length - 1];
 
-      const pngImageBytes = signaturePad.toDataURL('image/png').split(',')[1];
-      const pngImage = await pdfDoc.embedPng(pngImageBytes);
-      const { width, height } = firstPage.getSize();
+      const signatureImage = signaturePad.toDataURL('image/png').split(',')[1];
+      const pngImage = await pdfDoc.embedPng(signatureImage);
+      
+      const { width, height } = lastPage.getSize();
 
-      firstPage.drawImage(pngImage, {
-        x: width - 200,
-        y: 50,
-        width: 150,
-        height: 50
+      // Auto position: bottom-right corner
+      lastPage.drawImage(pngImage, {
+        x: width - 160,
+        y: 40,
+        width: 120,
+        height: 40,
       });
 
-      const modifiedPdfBytes = await pdfDoc.save();
-      const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+      const signedPdfBytes = await pdfDoc.save();
+      const blob = new Blob([signedPdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = 'Signed_Agreement.pdf';

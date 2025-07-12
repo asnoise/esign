@@ -11,123 +11,75 @@
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 
   <style>
-    :root {
-      --primary-color: #007bff;
-      --secondary-color: #f8f9fa;
-      --dark-color: #343a40;
-      --light-color: #ffffff;
-      --border-radius: 8px;
-    }
     body {
       font-family: sans-serif;
+      background-color: #f8f9fa;
       margin: 0;
       padding: 20px;
-      background-color: var(--secondary-color);
-      color: var(--dark-color);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
     .container {
-      width: 100%;
-      max-width: 900px;
-      background: var(--light-color);
-      padding: 25px;
-      border-radius: var(--border-radius);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-    header {
+    h1 {
       text-align: center;
-      margin-bottom: 25px;
-      border-bottom: 1px solid #e9ecef;
-      padding-bottom: 20px;
+      color: #007bff;
     }
-    header h1 {
-      color: var(--primary-color);
-      margin: 0;
-    }
-    .step {
-      margin-bottom: 20px;
-    }
-    .step-title {
-      font-size: 1.2em;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-    .file-upload-wrapper {
-      border: 2px dashed var(--primary-color);
-      border-radius: var(--border-radius);
+    .file-upload {
+      border: 2px dashed #007bff;
       padding: 30px;
       text-align: center;
       cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .file-upload-wrapper:hover {
-      background-color: #f0f8ff;
-    }
-    #pdf-viewer {
-      border: 1px solid #ccc;
-      border-radius: var(--border-radius);
-      margin-top: 15px;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-    #pdf-viewer canvas {
-      display: block;
-      margin: 10px auto;
-      border: 1px solid #eee;
-      cursor: crosshair;
+      border-radius: 8px;
+      margin-bottom: 20px;
     }
     .button {
-      background-color: var(--primary-color);
+      background-color: #007bff;
       color: white;
       border: none;
       padding: 12px 20px;
-      border-radius: var(--border-radius);
+      border-radius: 6px;
       cursor: pointer;
       font-size: 1em;
-      transition: background-color 0.2s;
-      display: inline-block;
-      margin-top: 10px;
-    }
-    .button:hover {
-      background-color: #0056b3;
     }
     .button:disabled {
-      background-color: #a0c7f1;
+      background-color: #ccc;
       cursor: not-allowed;
+    }
+    #pdf-viewer canvas {
+      margin: 10px auto;
+      display: block;
+      border: 1px solid #ccc;
+      cursor: crosshair;
     }
     .modal {
       display: none;
       position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      pointer-events: none;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
       justify-content: center;
       align-items: center;
     }
     .modal-content {
-      background-color: #fefefe;
+      background: #fff;
       padding: 20px;
-      border: 1px solid #888;
-      width: 90%;
+      border-radius: 8px;
       max-width: 500px;
-      border-radius: var(--border-radius);
+      width: 100%;
       text-align: center;
       position: relative;
-      pointer-events: auto;
     }
-    #signature-pad-canvas {
+    #signature-pad {
       border: 1px solid #333;
-      border-radius: var(--border-radius);
+      border-radius: 6px;
       width: 100%;
       height: 200px;
       touch-action: none;
-      display: block;
     }
     .modal-actions {
       margin-top: 15px;
@@ -136,218 +88,140 @@
       position: absolute;
       top: 10px;
       right: 15px;
-      color: #aaa;
-      font-size: 28px;
-      font-weight: bold;
+      font-size: 24px;
       cursor: pointer;
-    }
-    .close-button:hover {
-      color: black;
-    }
-    .info-box {
-      background: #eef7ff;
-      border-left: 4px solid var(--primary-color);
-      padding: 15px;
-      margin-top: 15px;
-      border-radius: 4px;
-    }
-    #loader {
-      display: none;
-      text-align: center;
-      margin-top: 20px;
-    }
-    .spinner {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid var(--primary-color);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 10px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>Jonom Digital</h1>
-      <p>E-Signature Tool for Agreements</p>
-    </header>
-    <div id="upload-step" class="step">
-      <div class="step-title">Step 1: Upload Your Agreement</div>
-      <div class="file-upload-wrapper" onclick="document.getElementById('pdf-upload').click()">Click here to choose a PDF file</div>
-      <input type="file" id="pdf-upload" accept="application/pdf" style="display: none;">
+    <h1>Jonom Digital - E-Sign</h1>
+    <div class="file-upload" onclick="document.getElementById('file').click()">Click here to upload a PDF</div>
+    <input type="file" id="file" accept="application/pdf" style="display: none;" />
+    <div id="pdf-viewer"></div>
+    <div style="text-align:center; margin-top:20px;">
+      <button class="button" id="download" disabled>Download Signed PDF</button>
     </div>
-    <div id="sign-step" class="step" style="display: none;">
-      <div class="step-title">Step 2: Sign the Document</div>
-      <div class="info-box"><p>Click anywhere on the document below to place your signature.</p></div>
-      <div id="pdf-viewer"></div>
-    </div>
-    <div id="download-step" class="step" style="display: none;">
-      <div class="step-title">Step 3: Generate and Download</div>
-      <button id="download-button" class="button" disabled>Apply Signature & Download PDF</button>
-      <div class="info-box"><p id="download-info">Please save your signature first.</p></div>
-    </div>
-    <div id="loader"><div class="spinner"></div><p>Processing your document...</p></div>
   </div>
 
-  <div id="signature-modal" class="modal">
+  <div class="modal" id="signature-modal">
     <div class="modal-content">
-      <span class="close-button" id="close-modal">×</span>
-      <h3>Draw Your Signature</h3>
-      <canvas id="signature-pad-canvas"></canvas>
+      <div class="close-button" onclick="closeModal()">×</div>
+      <h3>Draw your signature</h3>
+      <canvas id="signature-pad"></canvas>
       <div class="modal-actions">
-        <button id="clear-signature" class="button" style="background-color: #6c757d;">Clear</button>
-        <button id="save-signature" class="button">Save Signature</button>
+        <button class="button" onclick="clearSignature()">Clear</button>
+        <button class="button" onclick="saveSignature()">Save Signature</button>
       </div>
     </div>
   </div>
 
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js";
-    const { PDFDocument } = PDFLib;
-
-    const pdfUpload = document.getElementById('pdf-upload');
+    const fileInput = document.getElementById('file');
     const pdfViewer = document.getElementById('pdf-viewer');
-    const loader = document.getElementById('loader');
-    const signatureModal = document.getElementById('signature-modal');
-    const signaturePadCanvas = document.getElementById('signature-pad-canvas');
+    const modal = document.getElementById('signature-modal');
+    const signaturePadCanvas = document.getElementById('signature-pad');
+    const downloadBtn = document.getElementById('download');
 
-    let originalPdfBytes = null;
-    let signatureDataUrl = null;
+    let pdfData = null;
+    let signaturePad = null;
+    let signatureImage = null;
     let signaturePlacement = null;
-    let signaturePad;
 
-    function initializeSignaturePad() {
-      const canvas = signaturePadCanvas;
-      const parent = canvas.parentElement;
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
-      // Set display size
-      canvas.width = parent.offsetWidth * ratio;
-      canvas.height = 200 * ratio;
-      canvas.style.width = parent.offsetWidth + "px";
-      canvas.style.height = "200px";
-
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      signaturePad = new SignaturePad(canvas, {
-        backgroundColor: "#fff",
-        penColor: "black"
-      });
-
-      signaturePad.clear();
-    }
-
-    function openSignatureModal() {
-      signatureModal.style.display = 'flex';
-      setTimeout(() => initializeSignaturePad(), 100);
-    }
-
-    function closeSignatureModal() {
-      signatureModal.style.display = 'none';
-    }
-
-    window.addEventListener("resize", () => {
-      if (signatureModal.style.display === 'flex') initializeSignaturePad();
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      pdfData = new Uint8Array(await file.arrayBuffer());
+      renderPDF(pdfData);
     });
 
-    pdfUpload.addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-      if (!file || file.type !== 'application/pdf') return alert('Please select a valid PDF file.');
-
-      loader.style.display = 'block';
-      originalPdfBytes = new Uint8Array(await file.arrayBuffer());
-      await renderPdf(originalPdfBytes);
-      loader.style.display = 'none';
-      document.getElementById('upload-step').style.display = 'none';
-      document.getElementById('sign-step').style.display = 'block';
-    });
-
-    async function renderPdf(data) {
+    async function renderPDF(data) {
       pdfViewer.innerHTML = '';
-      const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
-
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        const page = await pdfDoc.getPage(i);
+      const pdf = await pdfjsLib.getDocument({ data }).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale: 1.5 });
         const canvas = document.createElement('canvas');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        const context = canvas.getContext('2d');
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
 
         canvas.addEventListener('click', (e) => {
           const rect = canvas.getBoundingClientRect();
           signaturePlacement = {
-            pageNum: i,
+            page: i,
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
             pageWidth: canvas.width,
             pageHeight: canvas.height
           };
-          openSignatureModal();
+          openModal();
         });
+
         pdfViewer.appendChild(canvas);
       }
     }
 
-    document.getElementById('close-modal').addEventListener('click', closeSignatureModal);
-    document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
-    document.getElementById('save-signature').addEventListener('click', () => {
-      if (signaturePad.isEmpty()) return alert("Please provide a signature first.");
+    function openModal() {
+      modal.style.display = 'flex';
+      setTimeout(() => {
+        resizeSignaturePad();
+      }, 100);
+    }
 
-      signatureDataUrl = signaturePad.toDataURL('image/png');
-      closeSignatureModal();
-      document.getElementById('download-step').style.display = 'block';
-      document.getElementById('download-button').disabled = false;
-      document.getElementById('download-info').textContent = "Signature captured! You can now apply it to the document.";
-    });
+    function closeModal() {
+      modal.style.display = 'none';
+    }
 
-    document.getElementById('download-button').addEventListener('click', async () => {
-      if (!originalPdfBytes || !signatureDataUrl || !signaturePlacement) return;
+    function resizeSignaturePad() {
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      signaturePadCanvas.width = signaturePadCanvas.offsetWidth * ratio;
+      signaturePadCanvas.height = signaturePadCanvas.offsetHeight * ratio;
+      signaturePadCanvas.getContext("2d").scale(ratio, ratio);
+      signaturePad = new SignaturePad(signaturePadCanvas);
+      signaturePad.clear();
+    }
 
-      loader.style.display = 'block';
-      document.getElementById('download-button').disabled = true;
+    function clearSignature() {
+      if (signaturePad) signaturePad.clear();
+    }
 
-      try {
-        const pdfToModify = await PDFDocument.load(originalPdfBytes);
-        const signatureImage = await pdfToModify.embedPng(await fetch(signatureDataUrl).then(res => res.arrayBuffer()));
-        const page = pdfToModify.getPages()[signaturePlacement.pageNum - 1];
+    function saveSignature() {
+      if (signaturePad.isEmpty()) return alert("Please draw your signature first.");
+      signatureImage = signaturePad.toDataURL();
+      closeModal();
+      downloadBtn.disabled = false;
+    }
 
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        const x_pdf = (signaturePlacement.x / signaturePlacement.pageWidth) * pageWidth;
-        const y_pdf = pageHeight - ((signaturePlacement.y / signaturePlacement.pageHeight) * pageHeight);
-        const signatureWidth = 150;
-        const signatureHeight = (signatureImage.height / signatureImage.width) * signatureWidth;
+    downloadBtn.addEventListener('click', async () => {
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.load(pdfData);
+      const pages = pdfDoc.getPages();
+      const pngImage = await pdfDoc.embedPng(await fetch(signatureImage).then(res => res.arrayBuffer()));
+      const targetPage = pages[signaturePlacement.page - 1];
 
-        page.drawImage(signatureImage, {
-          x: x_pdf - signatureWidth / 2,
-          y: y_pdf - signatureHeight / 2,
-          width: signatureWidth,
-          height: signatureHeight
-        });
+      const { width, height } = targetPage.getSize();
+      const x = (signaturePlacement.x / signaturePlacement.pageWidth) * width;
+      const y = height - (signaturePlacement.y / signaturePlacement.pageHeight) * height;
+      const pngDims = pngImage.scale(0.4);
 
-        const pdfBytes = await pdfToModify.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'signed-agreement-jonom-digital.pdf';
-        link.click();
-        URL.revokeObjectURL(link.href);
-      } catch (err) {
-        console.error(err);
-        alert("Failed to apply the signature.");
-      } finally {
-        loader.style.display = 'none';
-        setTimeout(() => location.reload(), 500);
-      }
+      targetPage.drawImage(pngImage, {
+        x: x - pngDims.width / 2,
+        y: y - pngDims.height / 2,
+        width: pngDims.width,
+        height: pngDims.height
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'signed-agreement.pdf';
+      link.click();
     });
   </script>
 </body>

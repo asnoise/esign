@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Jonom Digital - Sign PDF</title>
+  <title>Jonom Digital - Type Signature</title>
 
   <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.0.0/signature_pad.umd.min.js"></script>
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 
   <style>
@@ -19,14 +18,14 @@
     .button:disabled { background: #999; }
     canvas { border: 1px solid #ccc; display: block; margin: 10px auto; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-    .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 500px; text-align: center; }
-    #signature-pad { width: 100%; height: 200px; border: 1px solid #333; touch-action: none; border-radius: 6px; }
+    .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; }
+    .modal-content input { width: 90%; padding: 10px; font-size: 16px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; }
     .close-btn { float: right; cursor: pointer; font-size: 24px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Jonom Digital - Sign Agreement</h1>
+    <h1>Jonom Digital - Type Signature</h1>
     <div class="upload-box" onclick="document.getElementById('pdf-file').click()">Click here to upload PDF</div>
     <input type="file" id="pdf-file" accept="application/pdf" style="display:none;">
     <div id="pdf-viewer"></div>
@@ -37,12 +36,9 @@
   <div class="modal" id="signature-modal">
     <div class="modal-content">
       <div class="close-btn" onclick="closeModal()">×</div>
-      <h3>Draw Your Signature</h3>
-      <canvas id="signature-pad"></canvas>
-      <div>
-        <button class="button" onclick="clearSignature()">Clear</button>
-        <button class="button" onclick="saveSignature()">Save Signature</button>
-      </div>
+      <h3>Enter Your Name as Signature</h3>
+      <input type="text" id="typed-signature" placeholder="Full Name" />
+      <button class="button" onclick="saveTypedSignature()">Save</button>
     </div>
   </div>
 
@@ -51,12 +47,11 @@
     const pdfViewer = document.getElementById("pdf-viewer");
     const downloadBtn = document.getElementById("download-btn");
     const modal = document.getElementById("signature-modal");
-    const canvasPad = document.getElementById("signature-pad");
+    const typedInput = document.getElementById("typed-signature");
 
     let pdfBytes = null;
-    let signaturePad = null;
-    let signatureImage = null;
-    let signatureCoords = null;
+    let signatureText = "";
+    let signaturePosition = null;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
@@ -82,7 +77,7 @@
 
         canvas.addEventListener("click", (e) => {
           const rect = canvas.getBoundingClientRect();
-          signatureCoords = {
+          signaturePosition = {
             page: i,
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
@@ -97,58 +92,48 @@
     }
 
     function openModal() {
+      typedInput.value = "";
       modal.style.display = "flex";
-      setTimeout(() => initSignaturePad(), 100);
     }
 
     function closeModal() {
       modal.style.display = "none";
     }
 
-    function initSignaturePad() {
-      const ratio = window.devicePixelRatio || 1;
-      canvasPad.width = canvasPad.offsetWidth * ratio;
-      canvasPad.height = canvasPad.offsetHeight * ratio;
-      canvasPad.getContext("2d").scale(ratio, ratio);
-      signaturePad = new SignaturePad(canvasPad);
-    }
-
-    function clearSignature() {
-      if (signaturePad) signaturePad.clear();
-    }
-
-    function saveSignature() {
-      if (signaturePad.isEmpty()) return alert("Please draw your signature first.");
-      signatureImage = signaturePad.toDataURL("image/png");
+    function saveTypedSignature() {
+      if (typedInput.value.trim() === "") {
+        alert("Please enter your name");
+        return;
+      }
+      signatureText = typedInput.value.trim();
       closeModal();
       downloadBtn.disabled = false;
     }
 
     downloadBtn.addEventListener("click", async () => {
-      if (!pdfBytes || !signatureImage || !signatureCoords) return;
+      if (!pdfBytes || !signatureText || !signaturePosition) return;
 
       const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
       const pages = pdfDoc.getPages();
-      const pngImage = await pdfDoc.embedPng(await fetch(signatureImage).then(res => res.arrayBuffer()));
-      const page = pages[signatureCoords.page - 1];
+      const page = pages[signaturePosition.page - 1];
 
       const { width, height } = page.getSize();
-      const x = (signatureCoords.x / signatureCoords.canvasWidth) * width;
-      const y = height - (signatureCoords.y / signatureCoords.canvasHeight) * height;
-      const pngDims = pngImage.scale(0.4);
+      const x = (signaturePosition.x / signaturePosition.canvasWidth) * width;
+      const y = height - (signaturePosition.y / signaturePosition.canvasHeight) * height;
 
-      page.drawImage(pngImage, {
-        x: x - pngDims.width / 2,
-        y: y - pngDims.height / 2,
-        width: pngDims.width,
-        height: pngDims.height
+      page.drawText(signatureText, {
+        x: x - 40,
+        y: y,
+        size: 18,
+        font: await pdfDoc.embedFont(PDFLib.StandardFonts.Cursive || PDFLib.StandardFonts.Helvetica),
+        color: PDFLib.rgb(0.1, 0.1, 0.1)
       });
 
       const pdfData = await pdfDoc.save();
       const blob = new Blob([pdfData], { type: "application/pdf" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "signed-jonom-digital.pdf";
+      link.download = "signed-typed-agreement.pdf";
       link.click();
     });
   </script>
